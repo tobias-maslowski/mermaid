@@ -20,57 +20,51 @@ import {
 } from '@mermaid-js/parser';
 import type { ComponentRenderer, ComponentRenderContext } from './types.js';
 import type { WireframeComponent } from '@mermaid-js/parser';
-import {
-  drawBox,
-  drawText,
-  drawCheckmark,
-  drawRadioDot,
-  drawDropdownArrow,
-  truncateText,
-} from './utils.js';
+import { truncateText } from './utils.js';
 
 export const buttonRenderer: ComponentRenderer<Button> = {
   type: 'Button',
   guard: isButton,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, width, height, astNode } = node;
     const label = astNode.label ?? 'Button';
     const isPrimary = astNode.primary ?? false;
 
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-button-group');
 
-    drawBox(
-      g,
-      x,
-      y,
-      width,
-      height,
-      isPrimary ? 'wireframe-button wireframe-button-primary' : 'wireframe-button'
-    );
+    drawer.rect(g, x, y, width, height, {
+      className: isPrimary ? 'wireframe-button wireframe-button-primary' : 'wireframe-button',
+      rx: 5,
+    });
 
-    g.append('text')
-      .attr('x', x + width / 2)
-      .attr('y', y + height / 2)
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'central')
-      .attr('class', isPrimary ? 'wireframe-text wireframe-text-primary' : 'wireframe-text')
-      .text(truncateText(label, width - 8));
+    drawer.text(g, truncateText(label, width - 8), x + width / 2, y + height / 2, {
+      className: isPrimary ? 'wireframe-text wireframe-text-primary' : 'wireframe-text',
+      anchor: 'middle',
+      dominantBaseline: 'central',
+    });
   },
 };
 
-const renderTextField = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderTextField = ({
+  parentElem,
+  node,
+  drawer,
+}: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, width, height, astNode } = node;
   const label = astNode.label ?? (isTextField(astNode) ? astNode.type : undefined) ?? 'Input';
   const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-textfield');
 
   let currentY = y;
   if (label) {
-    drawText(g, label, x, currentY + 14);
+    drawer.text(g, label, x, currentY + 14, { className: 'wireframe-text' });
     currentY += 20;
   }
 
   const inputHeight = Math.max(28, height - (label ? 20 : 0));
-  drawBox(g, x, currentY, width, inputHeight, 'wireframe-input');
+  drawer.rect(g, x, currentY, width, inputHeight, {
+    className: 'wireframe-input',
+    rx: 5,
+  });
 };
 
 export const textFieldRenderer: ComponentRenderer<TextField> = {
@@ -88,7 +82,7 @@ export const multiFieldRenderer: ComponentRenderer<MultiField> = {
 export const textAreaRenderer: ComponentRenderer<TextArea> = {
   type: 'TextArea',
   guard: isTextArea,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, width, height, astNode } = node;
     const label = astNode.label;
     const isRichText = astNode.richtext ?? false;
@@ -96,56 +90,67 @@ export const textAreaRenderer: ComponentRenderer<TextArea> = {
 
     let currentY = y;
     if (label) {
-      drawText(g, label, x, currentY + 14);
+      drawer.text(g, label, x, currentY + 14, { className: 'wireframe-text' });
       currentY += 20;
     }
 
     const boxHeight = Math.max(50, height - (label ? 20 : 0));
-    drawBox(g, x, currentY, width, boxHeight, 'wireframe-input');
+    drawer.rect(g, x, currentY, width, boxHeight, {
+      className: 'wireframe-input',
+      rx: 5,
+    });
 
     if (isRichText) {
       const toolbarHeight = 30;
       // Background header fill for toolbar bar
-      g.append('rect')
-        .attr('x', x + 1)
-        .attr('y', currentY + 1)
-        .attr('width', width - 2)
-        .attr('height', toolbarHeight - 1)
-        .attr('rx', 4)
-        .attr('ry', 4)
-        .attr('class', 'wireframe-section-header');
+      drawer.rect(g, x + 1, currentY + 1, width - 2, toolbarHeight - 1, {
+        className: 'wireframe-section-header',
+        rx: 4,
+      });
 
       // Divider line under rich text toolbar
-      g.append('line')
-        .attr('x1', x)
-        .attr('y1', currentY + toolbarHeight)
-        .attr('x2', x + width)
-        .attr('y2', currentY + toolbarHeight)
-        .attr('class', 'wireframe-rule');
+      drawer.line(g, x, currentY + toolbarHeight, x + width, currentY + toolbarHeight, {
+        className: 'wireframe-rule',
+      });
 
       const barY = currentY + toolbarHeight / 2;
 
       // 1. Font Family Dropdown Mock
       const fontBoxWidth = 56;
-      drawBox(g, x + 6, currentY + 5, fontBoxWidth, 20, 'wireframe-input', 3);
-      drawText(g, 'Sans', x + 10, barY + 4, 'wireframe-text wireframe-text-small');
-      drawDropdownArrow(g, x + 6 + fontBoxWidth - 13, barY - 3);
+      drawer.rect(g, x + 6, currentY + 5, fontBoxWidth, 20, {
+        className: 'wireframe-input',
+        rx: 3,
+      });
+      drawer.text(g, 'Sans', x + 10, barY + 4, {
+        className: 'wireframe-text wireframe-text-small',
+      });
+      drawer.path(
+        g,
+        `M ${x + 6 + fontBoxWidth - 13} ${barY - 3} L ${x + 6 + fontBoxWidth - 5} ${barY - 3} L ${x + 6 + fontBoxWidth - 9} ${barY + 3} Z`,
+        { className: 'wireframe-dropdown-arrow' }
+      );
 
       // 2. Font Size Dropdown Mock
       const sizeBoxWidth = 36;
-      drawBox(g, x + 68, currentY + 5, sizeBoxWidth, 20, 'wireframe-input', 3);
-      drawText(g, '12', x + 72, barY + 4, 'wireframe-text wireframe-text-small');
-      drawDropdownArrow(g, x + 68 + sizeBoxWidth - 13, barY - 3);
+      drawer.rect(g, x + 68, currentY + 5, sizeBoxWidth, 20, {
+        className: 'wireframe-input',
+        rx: 3,
+      });
+      drawer.text(g, '12', x + 72, barY + 4, {
+        className: 'wireframe-text wireframe-text-small',
+      });
+      drawer.path(
+        g,
+        `M ${x + 68 + sizeBoxWidth - 13} ${barY - 3} L ${x + 68 + sizeBoxWidth - 5} ${barY - 3} L ${x + 68 + sizeBoxWidth - 9} ${barY + 3} Z`,
+        { className: 'wireframe-dropdown-arrow' }
+      );
 
       // 3. Vertical Separator 1
       let itemX = x + 112;
       if (itemX + 8 <= x + width - 10) {
-        g.append('line')
-          .attr('x1', itemX)
-          .attr('y1', currentY + 6)
-          .attr('x2', itemX)
-          .attr('y2', currentY + 24)
-          .attr('class', 'wireframe-rule');
+        drawer.line(g, itemX, currentY + 6, itemX, currentY + 24, {
+          className: 'wireframe-rule',
+        });
         itemX += 12;
       }
 
@@ -161,18 +166,15 @@ export const textAreaRenderer: ComponentRenderer<TextArea> = {
         if (itemX + 18 > x + width - 10) {
           break;
         }
-        drawText(g, tool.label, itemX, barY + 4, tool.fontClass);
+        drawer.text(g, tool.label, itemX, barY + 4, { className: tool.fontClass });
         itemX += 22;
       }
 
       // 5. Vertical Separator 2
       if (itemX + 8 <= x + width - 10) {
-        g.append('line')
-          .attr('x1', itemX)
-          .attr('y1', currentY + 6)
-          .attr('x2', itemX)
-          .attr('y2', currentY + 24)
-          .attr('class', 'wireframe-rule');
+        drawer.line(g, itemX, currentY + 6, itemX, currentY + 24, {
+          className: 'wireframe-rule',
+        });
         itemX += 12;
       }
 
@@ -189,7 +191,9 @@ export const textAreaRenderer: ComponentRenderer<TextArea> = {
         if (itemX + tool.width > x + width - 8) {
           break;
         }
-        drawText(g, tool.label, itemX, barY + 4, 'wireframe-text wireframe-text-small');
+        drawer.text(g, tool.label, itemX, barY + 4, {
+          className: 'wireframe-text wireframe-text-small',
+        });
         itemX += tool.width + 4;
       }
     }
@@ -211,21 +215,32 @@ export const textAreaRenderer: ComponentRenderer<TextArea> = {
         if (textLineY > currentY + boxHeight - 6) {
           break;
         }
-        drawText(g, line, x + 8, textLineY, 'wireframe-text', 'start', width - 16);
+        drawer.text(g, truncateText(line, width - 16), x + 8, textLineY, {
+          className: 'wireframe-text',
+          anchor: 'start',
+        });
         textLineY += 18;
       }
     }
   },
 };
 
-const renderSelectField = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderSelectField = ({
+  parentElem,
+  node,
+  drawer,
+}: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, width, height, astNode } = node;
   const label = astNode.label ?? 'Select...';
   const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-select');
 
-  drawBox(g, x, y, width, height, 'wireframe-input');
-  drawText(g, label, x + 10, y + height / 2 + 5);
-  drawDropdownArrow(g, x + width - 16, y + height / 2 - 3);
+  drawer.rect(g, x, y, width, height, { className: 'wireframe-input', rx: 5 });
+  drawer.text(g, label, x + 10, y + height / 2 + 5, { className: 'wireframe-text' });
+  drawer.path(
+    g,
+    `M ${x + width - 16} ${y + height / 2 - 3} L ${x + width - 8} ${y + height / 2 - 3} L ${x + width - 12} ${y + height / 2 + 3} Z`,
+    { className: 'wireframe-dropdown-arrow' }
+  );
 };
 
 export const selectFieldRenderer: ComponentRenderer<SelectField> = {
@@ -243,18 +258,22 @@ export const comboBoxRenderer: ComponentRenderer<ComboBox> = {
 export const checkboxFieldRenderer: ComponentRenderer<CheckboxField> = {
   type: 'CheckboxField',
   guard: isCheckboxField,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, astNode } = node;
     const label = astNode.label ?? '';
     const size = 18;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-checkbox');
 
-    drawBox(g, x, y, size, size, 'wireframe-checkbox-box', 3);
+    drawer.rect(g, x, y, size, size, { className: 'wireframe-checkbox-box', rx: 3 });
     if (astNode.checked) {
-      drawCheckmark(g, x, y);
+      drawer.path(g, `M ${x + 3} ${y + 8} L ${x + 7} ${y + 13} L ${x + 14} ${y + 4}`, {
+        className: 'wireframe-checkmark',
+        strokeWidth: 2.5,
+        fill: 'none',
+      });
     }
     if (label) {
-      drawText(g, label, x + size + 8, y + 14);
+      drawer.text(g, label, x + size + 8, y + 14, { className: 'wireframe-text' });
     }
   },
 };
@@ -262,24 +281,36 @@ export const checkboxFieldRenderer: ComponentRenderer<CheckboxField> = {
 export const checkboxGroupRenderer: ComponentRenderer<CheckboxGroup> = {
   type: 'CheckboxGroup',
   guard: isCheckboxGroup,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, astNode } = node;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-checkbox-group');
 
     let currentY = y;
     if (astNode.label) {
-      drawText(g, astNode.label, x, currentY + 14, 'wireframe-text wireframe-bold');
+      drawer.text(g, astNode.label, x, currentY + 14, {
+        className: 'wireframe-text wireframe-bold',
+      });
       currentY += 22;
     }
 
     if (astNode.options) {
       const size = 18;
       for (const opt of astNode.options) {
-        drawBox(g, x, currentY, size, size, 'wireframe-checkbox-box', 3);
+        drawer.rect(g, x, currentY, size, size, { className: 'wireframe-checkbox-box', rx: 3 });
         if (opt.selected) {
-          drawCheckmark(g, x, currentY);
+          drawer.path(
+            g,
+            `M ${x + 3} ${currentY + 8} L ${x + 7} ${currentY + 13} L ${x + 14} ${currentY + 4}`,
+            {
+              className: 'wireframe-checkmark',
+              strokeWidth: 2.5,
+              fill: 'none',
+            }
+          );
         }
-        drawText(g, opt.value ?? '', x + size + 8, currentY + 14);
+        drawer.text(g, opt.value ?? '', x + size + 8, currentY + 14, {
+          className: 'wireframe-text',
+        });
         currentY += 24;
       }
     }
@@ -289,13 +320,15 @@ export const checkboxGroupRenderer: ComponentRenderer<CheckboxGroup> = {
 export const radioGroupRenderer: ComponentRenderer<RadioGroup> = {
   type: 'RadioGroup',
   guard: isRadioGroup,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, astNode } = node;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-radio-group');
 
     let currentY = y;
     if (astNode.label) {
-      drawText(g, astNode.label, x, currentY + 14, 'wireframe-text wireframe-bold');
+      drawer.text(g, astNode.label, x, currentY + 14, {
+        className: 'wireframe-text wireframe-bold',
+      });
       currentY += 22;
     }
 
@@ -304,16 +337,14 @@ export const radioGroupRenderer: ComponentRenderer<RadioGroup> = {
       for (const opt of astNode.options) {
         const cx = x + size / 2;
         const cy = currentY + size / 2;
-        g.append('circle')
-          .attr('cx', cx)
-          .attr('cy', cy)
-          .attr('r', size / 2)
-          .attr('class', 'wireframe-radio-circle');
+        drawer.circle(g, cx, cy, size / 2, { className: 'wireframe-radio-circle' });
 
         if (opt.selected) {
-          drawRadioDot(g, cx, cy, 4);
+          drawer.circle(g, cx, cy, 4, { className: 'wireframe-radio-dot' });
         }
-        drawText(g, opt.value ?? '', x + size + 10, currentY + 13);
+        drawer.text(g, opt.value ?? '', x + size + 10, currentY + 13, {
+          className: 'wireframe-text',
+        });
         currentY += 24;
       }
     }

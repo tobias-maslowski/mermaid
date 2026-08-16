@@ -1,6 +1,7 @@
 import type { Selection } from 'd3';
 import type { WireframeComponent } from '@mermaid-js/parser';
 import type { WireframeDiagramConfig, WireframeRenderNode } from '../types.js';
+import type { PrimitiveDrawer } from '../drawers/index.js';
 
 export type SVGGroupSelection = Selection<SVGGElement, unknown, Element | null, unknown>;
 
@@ -8,6 +9,7 @@ export interface ComponentRenderContext<T extends WireframeComponent = Wireframe
   parentElem: SVGGroupSelection;
   node: WireframeRenderNode & { astNode: T };
   config: WireframeDiagramConfig;
+  drawer: PrimitiveDrawer;
   /** Callback to recursively render child nodes (for containers like section, fieldset, columns) */
   renderChildNodes: (parent: SVGGroupSelection, children: WireframeRenderNode[]) => void;
 }

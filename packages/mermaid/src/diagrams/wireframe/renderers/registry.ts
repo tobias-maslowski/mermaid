@@ -1,7 +1,6 @@
 import type { WireframeComponent } from '@mermaid-js/parser';
 import type { ComponentRenderer, ComponentRenderContext } from './types.js';
 import { LAYOUT_METRICS } from '../types.js';
-import { drawBox, drawText } from './utils.js';
 
 export const defaultRenderer: ComponentRenderer<WireframeComponent> = {
   type: 'default',
@@ -9,19 +8,20 @@ export const defaultRenderer: ComponentRenderer<WireframeComponent> = {
   // dispatches by $type key and falls back to this renderer when no specific
   // renderer is found. The guard is present purely to satisfy the interface.
   guard: (_comp): _comp is WireframeComponent => true,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, width, height, astNode } = node;
     const label = astNode.label ?? astNode.$type;
     const g = parentElem
       .append('g')
       .attr('class', `wireframe-comp wireframe-${astNode.$type.toLowerCase()}`);
 
-    drawBox(g, x, y, width, height, 'wireframe-container');
-    drawText(
+    drawer.rect(g, x, y, width, height, { className: 'wireframe-container' });
+    drawer.text(
       g,
       label,
       x + LAYOUT_METRICS.defaultComponent.textPaddingX,
-      y + LAYOUT_METRICS.defaultComponent.textOffsetY
+      y + LAYOUT_METRICS.defaultComponent.textOffsetY,
+      { className: 'wireframe-text' }
     );
   },
 };

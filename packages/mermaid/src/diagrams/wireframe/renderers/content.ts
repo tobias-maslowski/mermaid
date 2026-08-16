@@ -18,22 +18,23 @@ import {
   type Menu,
 } from '@mermaid-js/parser';
 import type { ComponentRenderer, ComponentRenderContext } from './types.js';
-import { drawBox, drawText } from './utils.js';
 
-const renderHeading = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderHeading = ({
+  parentElem,
+  node,
+  drawer,
+}: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, astNode } = node;
   const text = astNode.label ?? '';
   const isSub = isSubTitle(astNode);
-  const fontSize = isSub ? 16 : 20;
+  const fontSize = isSub ? '16px' : '20px';
 
   const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-heading');
-  g.append('text')
-    .attr('x', x)
-    .attr('y', y + (isSub ? 18 : 22))
-    .attr('class', 'wireframe-text')
-    .style('font-size', `${fontSize}px`)
-    .style('font-weight', 'bold')
-    .text(text);
+  drawer.text(g, text, x, y + (isSub ? 18 : 22), {
+    className: 'wireframe-text',
+    fontSize,
+    fontWeight: 'bold',
+  });
 };
 
 export const headingRenderer: ComponentRenderer<Heading> = {
@@ -48,13 +49,17 @@ export const subTitleRenderer: ComponentRenderer<SubTitle> = {
   render: renderHeading,
 };
 
-const renderParagraph = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderParagraph = ({
+  parentElem,
+  node,
+  drawer,
+}: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, astNode } = node;
   const text = astNode.label ?? '';
   const g = parentElem
     .append('g')
     .attr('class', `wireframe-comp wireframe-${astNode.$type.toLowerCase()}`);
-  drawText(g, text, x, y + 16);
+  drawer.text(g, text, x, y + 16, { className: 'wireframe-text' });
 };
 
 export const paragraphRenderer: ComponentRenderer<Paragraph> = {
@@ -78,7 +83,7 @@ export const textElementRenderer: ComponentRenderer<TextElement> = {
 export const listRenderer: ComponentRenderer<List> = {
   type: 'List',
   guard: isList,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, astNode } = node;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-list');
 
@@ -86,7 +91,9 @@ export const listRenderer: ComponentRenderer<List> = {
     if (astNode.items) {
       astNode.items.forEach((item, idx) => {
         const prefix = astNode.ordered ? `${idx + 1}.` : '•';
-        drawText(g, `${prefix} ${item.value ?? ''}`, x, currentY + 16);
+        drawer.text(g, `${prefix} ${item.value ?? ''}`, x, currentY + 16, {
+          className: 'wireframe-text',
+        });
         currentY += 22;
       });
     }
@@ -96,7 +103,7 @@ export const listRenderer: ComponentRenderer<List> = {
 export const treeRenderer: ComponentRenderer<Tree> = {
   type: 'Tree',
   guard: isTree,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, astNode } = node;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-tree');
 
@@ -107,12 +114,16 @@ export const treeRenderer: ComponentRenderer<Tree> = {
         const isExpanded = hasChildren && treeNode.expanded !== false;
         const prefix = hasChildren ? (isExpanded ? '📂' : '📁') : '📄';
 
-        drawText(g, `${prefix} ${treeNode.label ?? ''}`, x, currentY + 16);
+        drawer.text(g, `${prefix} ${treeNode.label ?? ''}`, x, currentY + 16, {
+          className: 'wireframe-text',
+        });
         currentY += 22;
 
         if (hasChildren && isExpanded && treeNode.children) {
           for (const childLabel of treeNode.children) {
-            drawText(g, `📄 ${childLabel}`, x + 20, currentY + 16);
+            drawer.text(g, `📄 ${childLabel}`, x + 20, currentY + 16, {
+              className: 'wireframe-text',
+            });
             currentY += 22;
           }
         }
@@ -124,16 +135,18 @@ export const treeRenderer: ComponentRenderer<Tree> = {
 export const menuRenderer: ComponentRenderer<Menu> = {
   type: 'Menu',
   guard: isMenu,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, width, height, astNode } = node;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-menu');
 
-    drawBox(g, x, y, width, height, 'wireframe-menu-box');
+    drawer.rect(g, x, y, width, height, { className: 'wireframe-menu-box' });
 
     let currentY = y;
     if (astNode.items) {
       for (const item of astNode.items) {
-        drawText(g, item.value ?? '', x + 12, currentY + 18);
+        drawer.text(g, item.value ?? '', x + 12, currentY + 18, {
+          className: 'wireframe-text',
+        });
         currentY += 26;
       }
     }

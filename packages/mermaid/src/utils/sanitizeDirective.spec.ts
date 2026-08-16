@@ -8,6 +8,32 @@ describe('sanitizeDirective', () => {
     expect(args).toEqual({ fontSize: 12 });
   });
 
+  it('preserves handDrawn profile and wireframe parameters', () => {
+    const args = {
+      look: 'handDrawn',
+      handDrawnSeed: 42,
+      handDrawnProfile: 'architect',
+      wireframe: {
+        handDrawnProfile: 'marker',
+        roughness: 1.5,
+        bowing: 2.0,
+        disableMultiStroke: true,
+      },
+    };
+    sanitizeDirective(args);
+    expect(args).toEqual({
+      look: 'handDrawn',
+      handDrawnSeed: 42,
+      handDrawnProfile: 'architect',
+      wireframe: {
+        handDrawnProfile: 'marker',
+        roughness: 1.5,
+        bowing: 2.0,
+        disableMultiStroke: true,
+      },
+    });
+  });
+
   describe('dictionary-style configs', () => {
     it('preserves treeView filenameIcons and extensionIcons entries', () => {
       const args = {

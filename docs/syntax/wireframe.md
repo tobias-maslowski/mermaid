@@ -418,9 +418,54 @@ config:
 
 ---
 
-## Known Limitations
+## Hand-Drawn Mode
 
-- **Hand-drawn style is not supported.** The global `look: 'handDrawn'` option has no effect on wireframe diagrams. Wireframe always renders with clean, geometric strokes regardless of the configured look.
+Wireframe diagrams fully support Mermaid's hand-drawn look (`look: handDrawn`). In this mode, shapes and borders are rendered with a sketchy, hand-drawn aesthetic using [RoughJS](https://roughjs.com).
+
+### Profiles
+
+You can choose from several hand-drawn profiles or customize the parameters directly:
+
+- **`loose`** _(default)_: Expressive, loose sketchy lines with natural hand wobble.
+- **`artist`**: Classic double-pass sketchy drawing.
+- **`architect`**: Subtle, clean technical hand-drafting with single strokes.
+- **`marker`**: Bold felt-tip marker style for high-contrast whiteboard wireframes.
+
+```mermaid-example
+---
+config:
+  look: handDrawn
+  handDrawnSeed: 1
+  wireframe:
+    handDrawnProfile: loose
+---
+wireframe-beta "Quick Note App"
+  actions ["New"] ["*Save"]
+
+  section "Notes"
+    textfield "Title"
+    textarea "Content..."
+    button "Archive"
+  end
+```
+
+```mermaid
+---
+config:
+  look: handDrawn
+  handDrawnSeed: 1
+  wireframe:
+    handDrawnProfile: loose
+---
+wireframe-beta "Quick Note App"
+  actions ["New"] ["*Save"]
+
+  section "Notes"
+    textfield "Title"
+    textarea "Content..."
+    button "Archive"
+  end
+```
 
 ---
 

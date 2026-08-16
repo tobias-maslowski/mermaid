@@ -18,44 +18,46 @@ import {
 } from '@mermaid-js/parser';
 import type { ComponentRenderer, ComponentRenderContext } from './types.js';
 import type { WireframeComponent } from '@mermaid-js/parser';
-import { drawBox, drawText, drawIconPlaceholder } from './utils.js';
 
 export const iconRenderer: ComponentRenderer<Icon> = {
   type: 'Icon',
   guard: isIcon,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, astNode } = node;
     const glyph = astNode.glyph ?? astNode.label ?? 'star';
-    drawIconPlaceholder(parentElem, glyph, x, y, 24);
+    const size = 24;
+    const g = parentElem.append('g').attr('class', 'wireframe-icon');
+
+    drawer.rect(g, x, y, size, size, { className: 'wireframe-icon-box', rx: 4 });
+
+    const char = glyph ? glyph.charAt(0).toUpperCase() : '*';
+    drawer.text(g, char, x + size / 2, y + size / 2 + 5, {
+      className: 'wireframe-text wireframe-icon-text',
+      anchor: 'middle',
+    });
   },
 };
 
-const renderImage = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderImage = ({ parentElem, node, drawer }: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, width, height, astNode } = node;
   const label = astNode.label ?? 'Image';
   const isPath = isPathField(astNode);
   const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-image');
 
   // Outer container box
-  drawBox(g, x, y, width, height, 'wireframe-container');
+  drawer.rect(g, x, y, width, height, { className: 'wireframe-container' });
 
   // Diagonal placeholder lines with subtle dashed stroke, inset 5px to fit within rounded corners
   const inset = 5;
-  g.append('line')
-    .attr('x1', x + inset)
-    .attr('y1', y + inset)
-    .attr('x2', x + width - inset)
-    .attr('y2', y + height - inset)
-    .attr('class', 'wireframe-rule')
-    .style('stroke-dasharray', '4 4');
+  drawer.line(g, x + inset, y + inset, x + width - inset, y + height - inset, {
+    className: 'wireframe-rule',
+    strokeDasharray: '4 4',
+  });
 
-  g.append('line')
-    .attr('x1', x + width - inset)
-    .attr('y1', y + inset)
-    .attr('x2', x + inset)
-    .attr('y2', y + height - inset)
-    .attr('class', 'wireframe-rule')
-    .style('stroke-dasharray', '4 4');
+  drawer.line(g, x + width - inset, y + inset, x + inset, y + height - inset, {
+    className: 'wireframe-rule',
+    strokeDasharray: '4 4',
+  });
 
   if (label) {
     const icon = isPath ? '📁 ' : '🖼️ ';
@@ -68,18 +70,16 @@ const renderImage = ({ parentElem, node }: ComponentRenderContext<WireframeCompo
     const badgeY = y + (height - badgeHeight) / 2;
 
     // Draw background pill/badge to cleanly obscure line intersection
-    drawBox(g, badgeX, badgeY, badgeWidth, badgeHeight, 'wireframe-fieldset-legend-bg', 12);
+    drawer.rect(g, badgeX, badgeY, badgeWidth, badgeHeight, {
+      className: 'wireframe-fieldset-legend-bg',
+      rx: 12,
+    });
 
     // Centered label text inside pill
-    drawText(
-      g,
-      fullText,
-      x + width / 2,
-      y + height / 2 + 4,
-      'wireframe-text wireframe-text-small',
-      'middle',
-      badgeWidth - 8
-    );
+    drawer.text(g, fullText, x + width / 2, y + height / 2 + 4, {
+      className: 'wireframe-text wireframe-text-small',
+      anchor: 'middle',
+    });
   }
 };
 
@@ -95,7 +95,7 @@ export const pathFieldRenderer: ComponentRenderer<PathField> = {
   render: renderImage,
 };
 
-const renderVRule = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderVRule = ({ parentElem, node, drawer }: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, width, height, astNode } = node;
   const vruleNode = isVRule(astNode) ? astNode : undefined;
   const label = vruleNode?.label;
@@ -104,19 +104,17 @@ const renderVRule = ({ parentElem, node }: ComponentRenderContext<WireframeCompo
   const g = parentElem
     .append('g')
     .attr('class', 'wireframe-comp wireframe-divider wireframe-vrule');
-  g.append('line')
-    .attr('x1', cx)
-    .attr('y1', y)
-    .attr('x2', cx)
-    .attr('y2', y + h)
-    .attr('class', 'wireframe-rule');
+
+  drawer.line(g, cx, y, cx, y + h, { className: 'wireframe-rule' });
 
   if (label) {
-    drawText(g, label, cx + 8, y + h / 2 + 4, 'wireframe-text wireframe-text-small');
+    drawer.text(g, label, cx + 8, y + h / 2 + 4, {
+      className: 'wireframe-text wireframe-text-small',
+    });
   }
 };
 
-const renderVCurly = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderVCurly = ({ parentElem, node, drawer }: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, width, height, astNode } = node;
   const curlyNode = isVCurly(astNode) ? astNode : undefined;
   const label = curlyNode?.label;
@@ -131,14 +129,16 @@ const renderVCurly = ({ parentElem, node }: ComponentRenderContext<WireframeComp
     `C ${cx},${y + half / 2} ${cx + braceWidth},${y + half / 2} ${cx + braceWidth},${y + half} ` +
     `C ${cx + braceWidth},${y + half + half / 2} ${cx},${y + half + half / 2} ${cx},${y + h}`;
 
-  g.append('path').attr('d', pathD).attr('class', 'wireframe-rule').attr('fill', 'none');
+  drawer.path(g, pathD, { className: 'wireframe-rule', fill: 'none' });
 
   if (label) {
-    drawText(g, label, cx + braceWidth + 6, y + half + 4, 'wireframe-text wireframe-text-small');
+    drawer.text(g, label, cx + braceWidth + 6, y + half + 4, {
+      className: 'wireframe-text wireframe-text-small',
+    });
   }
 };
 
-const renderArrow = ({ parentElem, node }: ComponentRenderContext<WireframeComponent>) => {
+const renderArrow = ({ parentElem, node, drawer }: ComponentRenderContext<WireframeComponent>) => {
   const { x, y, width, height, astNode } = node;
   const arrowNode = isArrow(astNode) ? astNode : undefined;
   const label = arrowNode?.label;
@@ -163,25 +163,20 @@ const renderArrow = ({ parentElem, node }: ComponentRenderContext<WireframeCompo
     y2 = y + height;
   }
 
-  g.append('line')
-    .attr('x1', x1)
-    .attr('y1', y1)
-    .attr('x2', x2)
-    .attr('y2', y2)
-    .attr('class', 'wireframe-rule');
+  drawer.line(g, x1, y1, x2, y2, { className: 'wireframe-rule' });
 
   const drawHead = (px: number, py: number, direction: 'left' | 'right' | 'up' | 'down') => {
-    let points = '';
+    let d = '';
     if (direction === 'right') {
-      points = `${px},${py} ${px - headSize * 1.5},${py - headSize} ${px - headSize * 1.5},${py + headSize}`;
+      d = `M ${px} ${py} L ${px - headSize * 1.5} ${py - headSize} L ${px - headSize * 1.5} ${py + headSize} Z`;
     } else if (direction === 'left') {
-      points = `${px},${py} ${px + headSize * 1.5},${py - headSize} ${px + headSize * 1.5},${py + headSize}`;
+      d = `M ${px} ${py} L ${px + headSize * 1.5} ${py - headSize} L ${px + headSize * 1.5} ${py + headSize} Z`;
     } else if (direction === 'up') {
-      points = `${px},${py} ${px - headSize},${py + headSize * 1.5} ${px + headSize},${py + headSize * 1.5}`;
+      d = `M ${px} ${py} L ${px - headSize} ${py + headSize * 1.5} L ${px + headSize} ${py + headSize * 1.5} Z`;
     } else if (direction === 'down') {
-      points = `${px},${py} ${px - headSize},${py - headSize * 1.5} ${px + headSize},${py - headSize * 1.5}`;
+      d = `M ${px} ${py} L ${px - headSize} ${py - headSize * 1.5} L ${px + headSize} ${py - headSize * 1.5} Z`;
     }
-    g.append('polygon').attr('points', points).attr('class', 'wireframe-arrow-head');
+    drawer.path(g, d, { className: 'wireframe-arrow-head' });
   };
 
   if (dir === 'right' || dir === 'both') {
@@ -199,9 +194,14 @@ const renderArrow = ({ parentElem, node }: ComponentRenderContext<WireframeCompo
 
   if (label) {
     if (dir === 'up' || dir === 'down') {
-      drawText(g, label, midX + 10, midY + 4, 'wireframe-text wireframe-text-small');
+      drawer.text(g, label, midX + 10, midY + 4, {
+        className: 'wireframe-text wireframe-text-small',
+      });
     } else {
-      drawText(g, label, midX, midY - 6, 'wireframe-text wireframe-text-small', 'middle');
+      drawer.text(g, label, midX, midY - 6, {
+        className: 'wireframe-text wireframe-text-small',
+        anchor: 'middle',
+      });
     }
   }
 };
@@ -227,15 +227,17 @@ export const vCurlyRenderer: ComponentRenderer<VCurly> = {
 export const formattingToolbarRenderer: ComponentRenderer<FormattingToolbar> = {
   type: 'FormattingToolbar',
   guard: isFormattingToolbar,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, width, height } = node;
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-toolbar');
 
-    drawBox(g, x, y, width, height, 'wireframe-container');
+    drawer.rect(g, x, y, width, height, { className: 'wireframe-container' });
     const tools = ['B', 'I', 'U', 'S', '≡', '🔗'];
     let btnX = x + 6;
     for (const tool of tools) {
-      drawText(g, tool, btnX + 6, y + height / 2 + 4, 'wireframe-text wireframe-bold');
+      drawer.text(g, tool, btnX + 6, y + height / 2 + 4, {
+        className: 'wireframe-text wireframe-bold',
+      });
       btnX += 22;
     }
   },
@@ -244,14 +246,16 @@ export const formattingToolbarRenderer: ComponentRenderer<FormattingToolbar> = {
 export const canvasRenderer: ComponentRenderer<Canvas> = {
   type: 'Canvas',
   guard: isCanvas,
-  render: ({ parentElem, node }) => {
+  render: ({ parentElem, node, drawer }) => {
     const { x, y, width, height, astNode } = node;
     const label = astNode.label ?? 'Canvas';
     const g = parentElem.append('g').attr('class', 'wireframe-comp wireframe-canvas');
 
-    drawBox(g, x, y, width, height, 'wireframe-container');
+    drawer.rect(g, x, y, width, height, { className: 'wireframe-container' });
     if (label) {
-      drawText(g, label, x + 10, y + 20, 'wireframe-text wireframe-bold');
+      drawer.text(g, label, x + 10, y + 20, {
+        className: 'wireframe-text wireframe-bold',
+      });
     }
   },
 };

@@ -2,6 +2,7 @@ import type { DiagramRenderer, DrawDefinition } from '../../diagram-api/types.js
 import { log } from '../../logger.js';
 import { selectSvgElement } from '../../rendering-util/selectSvgElement.js';
 import { configureSvgSize } from '../../setupGraphViewbox.js';
+import { getConfig } from '../../diagram-api/diagramAPI.js';
 import type { WireframeDB } from './db.js';
 import { LAYOUT_METRICS, type WireframeDiagramConfig, type WireframeRenderNode } from './types.js';
 import { registry } from './renderers/index.js';
@@ -10,24 +11,22 @@ import { isContentTabs } from '@mermaid-js/parser';
 import { hasShowTabs } from './renderers/utils.js';
 import { computeWireframeLayout, parseShowTabs } from './layout.js';
 import type { SVGGroupSelection } from './renderers/types.js';
+import { createDrawer, type PrimitiveDrawer } from './drawers/index.js';
 
 const renderActionBar = (
   parentElem: SVGGroupSelection,
   actionBar: ActionBar,
   width: number,
   yPos: number,
-  xPos = 0
+  xPos = 0,
+  drawer: PrimitiveDrawer
 ): number => {
   const metrics = LAYOUT_METRICS.actionBar;
   const bar = parentElem.append('g').attr('class', 'wireframe-action-bar-group');
 
-  bar
-    .append('rect')
-    .attr('x', xPos)
-    .attr('y', yPos)
-    .attr('width', width)
-    .attr('height', metrics.height)
-    .attr('class', 'wireframe-action-bar');
+  drawer.rect(bar, xPos, yPos, width, metrics.height, {
+    className: 'wireframe-action-bar',
+  });
 
   let xOffset = xPos + 10;
   if (actionBar.buttons) {
@@ -41,24 +40,18 @@ const renderActionBar = (
         ? 'wireframe-action-button wireframe-action-button-primary'
         : 'wireframe-action-button';
 
-      bar
-        .append('rect')
-        .attr('x', xOffset)
-        .attr('y', btnY)
-        .attr('width', btnWidth)
-        .attr('height', metrics.buttonHeight)
-        .attr('class', btnClass);
+      drawer.rect(bar, xOffset, btnY, btnWidth, metrics.buttonHeight, {
+        className: btnClass,
+        rx: 4,
+      });
 
       const textClass = isPrimary ? 'wireframe-text wireframe-text-primary' : 'wireframe-text';
 
-      bar
-        .append('text')
-        .attr('x', xOffset + btnWidth / 2)
-        .attr('y', btnY + metrics.buttonHeight / 2)
-        .attr('text-anchor', 'middle')
-        .attr('dominant-baseline', 'central')
-        .attr('class', textClass)
-        .text(displayLabel);
+      drawer.text(bar, displayLabel, xOffset + btnWidth / 2, btnY + metrics.buttonHeight / 2, {
+        className: textClass,
+        anchor: 'middle',
+        dominantBaseline: 'central',
+      });
 
       xOffset += btnWidth + metrics.gap;
     }
@@ -69,15 +62,17 @@ const renderActionBar = (
 const renderNodesRecursive = (
   parentElem: SVGGroupSelection,
   nodes: WireframeRenderNode[],
-  config: WireframeDiagramConfig
+  config: WireframeDiagramConfig,
+  drawer: PrimitiveDrawer
 ) => {
   for (const node of nodes) {
     registry.render({
       parentElem,
       node,
       config,
+      drawer,
       renderChildNodes: (childParent, children) => {
-        renderNodesRecursive(childParent, children, config);
+        renderNodesRecursive(childParent, children, config, drawer);
       },
     });
   }
@@ -102,6 +97,26 @@ const draw: DrawDefinition = (text, id, _ver, diagObj) => {
   const components = db.getComponents();
 
   const svg = selectSvgElement(id);
+  const siteConfig = getConfig() ?? {};
+  const wireframeConfig = db.getConfig();
+
+  const look = siteConfig.look;
+  const handDrawnSeed = siteConfig.handDrawnSeed;
+  const handDrawnProfile =
+    wireframeConfig.handDrawnProfile ?? siteConfig.handDrawnProfile ?? 'loose';
+  const roughness = wireframeConfig.roughness;
+  const bowing = wireframeConfig.bowing;
+  const disableMultiStroke = wireframeConfig.disableMultiStroke;
+
+  const drawer = createDrawer(svg.node()!, {
+    look,
+    handDrawnSeed,
+    handDrawnProfile,
+    roughness,
+    bowing,
+    disableMultiStroke,
+    themeVariables: siteConfig.themeVariables,
+  });
 
   const width = dimensions.width;
   const height = dimensions.height;
@@ -139,26 +154,23 @@ const draw: DrawDefinition = (text, id, _ver, diagObj) => {
   const totalHeight = Math.max(height, currentY);
   const totalWidth = numCanvases * width + (numCanvases - 1) * gapX;
 
-  // Draw sketchy canvas background container rects for each multiplied canvas
+  // Draw canvas background container rects for each multiplied canvas
   for (let c = 0; c < numCanvases; c++) {
     const canvasX = c * (width + gapX);
 
-    wireframeGroup
-      .append('rect')
-      .attr('x', canvasX)
-      .attr('y', 0)
-      .attr('width', width)
-      .attr('height', totalHeight)
-      .attr('class', 'wireframe-container');
+    drawer.rect(wireframeGroup, canvasX, 0, width, totalHeight, {
+      className: 'wireframe-container',
+      rx: 6,
+    });
 
     if (actionBar) {
-      renderActionBar(wireframeGroup, actionBar, width, canvasPadding, canvasX);
+      renderActionBar(wireframeGroup, actionBar, width, canvasPadding, canvasX, drawer);
     }
   }
 
   // Pass 2: Modular SVG Render
   if (layoutNodes.length > 0) {
-    renderNodesRecursive(wireframeGroup, layoutNodes, config);
+    renderNodesRecursive(wireframeGroup, layoutNodes, config, drawer);
   }
 
   svg.attr('viewBox', `0 0 ${totalWidth} ${totalHeight}`);

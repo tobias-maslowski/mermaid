@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { select } from 'd3';
+import mermaid from '../../mermaid.js';
 import type { WireframeSection } from '@mermaid-js/parser';
 import detector from './detector.js';
 import { parser } from './parser.js';
@@ -7,6 +9,7 @@ import { computeWireframeLayout } from './layout.js';
 import { registry } from './renderers/index.js';
 import getStyles from './styles.js';
 import { getConfig, updateSiteConfig } from '../../config.js';
+import { SvgDrawer, RoughDrawer, createDrawer } from './drawers/index.js';
 
 describe('wireframe diagram', () => {
   beforeEach(() => {
@@ -353,6 +356,8 @@ button "B3"
         'CustomUnknownComponent',
       ];
 
+      const drawer = new SvgDrawer();
+
       for (const $type of astTypes) {
         expect(() => {
           registry.render({
@@ -367,6 +372,7 @@ button "B3"
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             config: {} as any,
+            drawer,
             renderChildNodes: () => {
               // No-op for unit test mock
             },
@@ -401,6 +407,8 @@ button "B3"
         return sel;
       };
 
+      const drawer = new SvgDrawer();
+
       // Test VRule
       elements.length = 0;
       registry.render({
@@ -413,6 +421,7 @@ button "B3"
           height: 80,
         },
         config: {} as any,
+        drawer,
         renderChildNodes: () => {
           // no-op
         },
@@ -433,6 +442,7 @@ button "B3"
           height: 100,
         },
         config: {} as any,
+        drawer,
         renderChildNodes: () => {
           // no-op
         },
@@ -456,13 +466,12 @@ button "B3"
             height: 50,
           },
           config: {} as any,
+          drawer,
           renderChildNodes: () => {
             // no-op
           },
         });
-        expect(
-          elements.some((e) => e.tag === 'polygon' && typeof e.attrs.points === 'string')
-        ).toBe(true);
+        expect(elements.some((e) => e.tag === 'path' && typeof e.attrs.d === 'string')).toBe(true);
       }
     });
 
@@ -486,6 +495,242 @@ button "B3"
       if (originalWireframe) {
         updateSiteConfig({ wireframe: originalWireframe });
       }
+    });
+  });
+
+  describe('drawers & polymorphic handDrawn mode', () => {
+    it('createDrawer returns SvgDrawer for classic look and RoughDrawer for handDrawn look', () => {
+      // Mock svg element
+      const svgEl = {
+        ownerDocument: {
+          createElementNS: (_ns: string, tag: string) => ({
+            tagName: tag,
+            setAttribute: vi.fn(),
+            appendChild: vi.fn(),
+            style: {},
+          }),
+        },
+      } as unknown as SVGSVGElement;
+
+      const classicDrawer = createDrawer(svgEl, { look: 'classic' });
+      expect(classicDrawer).toBeInstanceOf(SvgDrawer);
+
+      const defaultDrawer = createDrawer(svgEl, {});
+      expect(defaultDrawer).toBeInstanceOf(SvgDrawer);
+
+      const roughDrawer = createDrawer(svgEl, { look: 'handDrawn', handDrawnSeed: 42 });
+      expect(roughDrawer).toBeInstanceOf(RoughDrawer);
+    });
+
+    it('SvgDrawer creates standard SVG elements correctly', () => {
+      const appended: { tag: string; attrs: Record<string, any> }[] = [];
+      const createMock = (): any => {
+        const sel: any = {
+          append: (tag: string) => {
+            const elem = { tag, attrs: {} as Record<string, any> };
+            appended.push(elem);
+            return sel;
+          },
+          attr: (name: string, val: any) => {
+            if (appended.length > 0) {
+              appended[appended.length - 1].attrs[name] = val;
+            }
+            return sel;
+          },
+          style: (name: string, val: any) => {
+            if (appended.length > 0) {
+              appended[appended.length - 1].attrs[name] = val;
+            }
+            return sel;
+          },
+          text: (content: string) => {
+            if (appended.length > 0) {
+              appended[appended.length - 1].attrs.text = content;
+            }
+            return sel;
+          },
+        };
+        return sel;
+      };
+      const mockParent = createMock();
+
+      const drawer = new SvgDrawer();
+      drawer.rect(mockParent, 10, 20, 100, 50, { className: 'test-rect', rx: 5 });
+      expect(appended.some((e) => e.tag === 'rect' && e.attrs.x === 10 && e.attrs.rx === 5)).toBe(
+        true
+      );
+
+      drawer.circle(mockParent, 50, 50, 20, { className: 'test-circle' });
+      expect(
+        appended.some((e) => e.tag === 'circle' && e.attrs.cx === 50 && e.attrs.r === 20)
+      ).toBe(true);
+
+      drawer.line(mockParent, 0, 0, 100, 100, { className: 'test-line' });
+      expect(appended.some((e) => e.tag === 'line' && e.attrs.x1 === 0 && e.attrs.x2 === 100)).toBe(
+        true
+      );
+
+      drawer.path(mockParent, 'M 0 0 L 10 10', { className: 'test-path' });
+      expect(appended.some((e) => e.tag === 'path' && e.attrs.d === 'M 0 0 L 10 10')).toBe(true);
+
+      drawer.text(mockParent, 'Hello World', 10, 20, { className: 'test-text', anchor: 'middle' });
+      expect(
+        appended.some(
+          (e) =>
+            e.tag === 'text' &&
+            e.attrs.text === 'Hello World' &&
+            e.attrs['text-anchor'] === 'middle'
+        )
+      ).toBe(true);
+    });
+
+    it('RoughDrawer creates sketchy nodes using roughjs and attaches them', () => {
+      const appendedNodes: any[] = [];
+      const mockParentNode = {
+        appendChild: (node: any) => {
+          appendedNodes.push(node);
+        },
+      };
+      const mockParent: any = {
+        node: () => mockParentNode,
+        append: (tag: string) => {
+          const elem = { tag, attrs: {} as Record<string, any> };
+          appendedNodes.push(elem);
+          const sel: any = {
+            attr: (name: string, val: any) => {
+              elem.attrs[name] = val;
+              return sel;
+            },
+            style: (name: string, val: any) => {
+              elem.attrs[name] = val;
+              return sel;
+            },
+            text: (content: string) => {
+              elem.attrs.text = content;
+              return sel;
+            },
+          };
+          return sel;
+        },
+      };
+
+      const svgEl = {
+        ownerDocument: {
+          createElementNS: (_ns: string, tag: string) => ({
+            tagName: tag,
+            setAttribute: vi.fn(),
+            appendChild: vi.fn(),
+            style: {},
+          }),
+        },
+      } as unknown as SVGSVGElement;
+
+      const roughDrawer = new RoughDrawer(svgEl, { seed: 123 });
+      roughDrawer.rect(mockParent, 0, 0, 100, 50, { className: 'wireframe-container' });
+      expect(appendedNodes.length).toBeGreaterThan(0);
+
+      roughDrawer.circle(mockParent, 20, 20, 10, { className: 'wireframe-radio-circle' });
+      expect(appendedNodes.length).toBeGreaterThan(1);
+
+      roughDrawer.line(mockParent, 0, 0, 50, 50, { className: 'wireframe-rule' });
+      expect(appendedNodes.length).toBeGreaterThan(2);
+
+      roughDrawer.path(mockParent, 'M 0 0 L 10 10', { className: 'wireframe-checkmark' });
+      expect(appendedNodes.length).toBeGreaterThan(3);
+
+      roughDrawer.text(mockParent, 'Handdrawn text', 10, 20, { className: 'wireframe-text' });
+      expect(appendedNodes.some((n) => n.tag === 'text' && n.attrs.text === 'Handdrawn text')).toBe(
+        true
+      );
+    });
+
+    it('RoughDrawer initializes with configurable profiles and overrides', () => {
+      const svgEl = {
+        ownerDocument: {
+          createElementNS: (_ns: string, tag: string) => ({
+            tagName: tag,
+            setAttribute: vi.fn(),
+            appendChild: vi.fn(),
+            style: {},
+          }),
+        },
+      } as unknown as SVGSVGElement;
+
+      const looseDrawer = createDrawer(svgEl, {
+        look: 'handDrawn',
+        handDrawnProfile: 'loose',
+      });
+      expect(looseDrawer).toBeInstanceOf(RoughDrawer);
+
+      const architectDrawer = createDrawer(svgEl, {
+        look: 'handDrawn',
+        handDrawnProfile: 'architect',
+      });
+      expect(architectDrawer).toBeInstanceOf(RoughDrawer);
+
+      const customDrawer = createDrawer(svgEl, {
+        look: 'handDrawn',
+        roughness: 2.5,
+        bowing: 3.0,
+      });
+      expect(customDrawer).toBeInstanceOf(RoughDrawer);
+    });
+
+    it('RoughDrawer generates different SVG path geometries for different profiles', () => {
+      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      document.body.appendChild(svgEl);
+
+      const looseDrawer = new RoughDrawer(svgEl, { profile: 'loose', seed: 42 });
+      const architectDrawer = new RoughDrawer(svgEl, { profile: 'architect', seed: 42 });
+
+      const groupLoose = select(document.createElementNS('http://www.w3.org/2000/svg', 'g')) as any;
+      const groupArchitect = select(
+        document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      ) as any;
+
+      const looseNode = looseDrawer
+        .rect(groupLoose, 0, 0, 100, 50, { className: 'wireframe-container' })
+        .node()!;
+      const architectNode = architectDrawer
+        .rect(groupArchitect, 0, 0, 100, 50, { className: 'wireframe-container' })
+        .node()!;
+
+      const loosePaths = [...looseNode.querySelectorAll('path')].map((p) => p.getAttribute('d'));
+      const architectPaths = [...architectNode.querySelectorAll('path')].map((p) =>
+        p.getAttribute('d')
+      );
+
+      // loose profile with disableMultiStroke: false should have more path definitions / different path data than architect
+      expect(loosePaths).not.toEqual(architectPaths);
+
+      document.body.removeChild(svgEl);
+    });
+
+    it('mermaid.render produces distinct SVG outputs across all 4 profiles via frontmatter', async () => {
+      mermaid.initialize({ startOnLoad: false });
+
+      const profiles = ['loose', 'artist', 'architect', 'marker'] as const;
+      const svgs: string[] = [];
+
+      for (const profile of profiles) {
+        const text = `---
+config:
+  look: handDrawn
+  handDrawnSeed: 42
+  wireframe:
+    handDrawnProfile: ${profile}
+---
+wireframe-beta "Profile Test"
+  button "Submit"
+  textfield "Input Field"`;
+
+        const { svg } = await mermaid.render(`test-profile-${profile}`, text);
+        svgs.push(svg);
+      }
+
+      // Ensure every profile produces a distinct SVG rendering
+      const uniqueSvgs = new Set(svgs);
+      expect(uniqueSvgs.size).toBe(4);
     });
   });
 });

@@ -95,6 +95,11 @@ export interface MermaidConfig {
    */
   handDrawnSeed?: number;
   /**
+   * Defines the hand-drawn sketch profile (e.g. loose, artist, architect, marker).
+   *
+   */
+  handDrawnProfile?: 'loose' | 'artist' | 'architect' | 'marker';
+  /**
    * Defines which layout algorithm to use for rendering the diagram.
    *
    */
@@ -1917,6 +1922,22 @@ export interface WireframeDiagramConfig extends BaseDiagramConfig {
    * Font size to use for wireframe labels
    */
   fontSize?: number;
+  /**
+   * Hand-drawn sketch style profile
+   */
+  handDrawnProfile?: 'loose' | 'artist' | 'architect' | 'marker';
+  /**
+   * RoughJS roughness parameter override
+   */
+  roughness?: number;
+  /**
+   * RoughJS bowing parameter override
+   */
+  bowing?: number;
+  /**
+   * Whether to disable multi-stroke sketch passes
+   */
+  disableMultiStroke?: boolean;
 }
 /**
  * The object containing configurations specific for radar diagrams.

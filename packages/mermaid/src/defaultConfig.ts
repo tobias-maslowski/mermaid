@@ -20,6 +20,7 @@ const config: RequiredDeep<MermaidConfig> = {
   // Set, even though they're `undefined` so that `configKeys` finds these keys
   // TODO: Should we replace these with `null` so that they can go in the JSON Schema?
   deterministicIDSeed: undefined,
+  handDrawnProfile: undefined,
   elk: {
     // mergeEdges is needed here to be considered
     mergeEdges: false,
@@ -278,6 +279,10 @@ const config: RequiredDeep<MermaidConfig> = {
   wireframe: {
     ...defaultConfigJson.wireframe,
     useWidth: undefined,
+    handDrawnProfile: undefined,
+    roughness: undefined,
+    bowing: undefined,
+    disableMultiStroke: undefined,
   },
   radar: {
     ...defaultConfigJson.radar,

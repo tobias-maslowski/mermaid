@@ -100,6 +100,16 @@ properties:
       Defines the seed to be used when using handDrawn look. This is important for the automated tests as they will always find differences without the seed. The default value is 0 which gives a random seed.
     type: number
     default: 0
+  handDrawnProfile:
+    description: |
+      Defines the hand-drawn sketch profile (e.g. loose, artist, architect, marker).
+    type: string
+    enum:
+      - loose
+      - artist
+      - architect
+      - marker
+    default: 'loose'
   layout:
     description: |
       Defines which layout algorithm to use for rendering the diagram.
@@ -2654,6 +2664,24 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
       fontSize:
         description: Font size to use for wireframe labels
         type: number
+      handDrawnProfile:
+        description: Hand-drawn sketch style profile
+        type: string
+        enum:
+          - loose
+          - artist
+          - architect
+          - marker
+        default: loose
+      roughness:
+        description: RoughJS roughness parameter override
+        type: number
+      bowing:
+        description: RoughJS bowing parameter override
+        type: number
+      disableMultiStroke:
+        description: Whether to disable multi-stroke sketch passes
+        type: boolean
 
   RadarDiagramConfig:
     title: Radar Diagram Config
